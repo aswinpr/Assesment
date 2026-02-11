@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Flask
+instance/
+
+# Node / React
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
