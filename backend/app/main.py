@@ -18,6 +18,9 @@ def create_app():
     migrate.init_app(app, db)
 
     from .routes.health import bp as health_bp
+    from .routes.ingest import bp as ingest_bp
+
     app.register_blueprint(health_bp)
+    app.register_blueprint(ingest_bp)
 
     return app
