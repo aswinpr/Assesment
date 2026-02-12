@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
 from app.extensions import db
-from sqlalchemy.dialects.postgresql import JSONB
 
 class Test(db.Model):
     __tablename__ = "tests"
@@ -11,9 +10,14 @@ class Test(db.Model):
         primary_key=True,
         default=uuid.uuid4
     )
+
     name = db.Column(db.String, nullable=False)
+
     max_marks = db.Column(db.Integer, nullable=False)
-    negative_marking = db.Column(JSONB, nullable=False)
+
+    # ✅ store as numeric value, NOT JSON
+    negative_marking = db.Column(db.Float, nullable=False, default=0.0)
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=datetime.utcnow
