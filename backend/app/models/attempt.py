@@ -14,7 +14,8 @@ class Attempt(db.Model):
     student = db.relationship("Student", backref="attempts")
     test = db.relationship("Test", backref="attempts")  # ✅ REQUIRED
 
-    source_event_id = db.Column(db.String, nullable=False)
+    source_event_id = db.Column(db.String, unique=True, nullable=False)
+
     started_at = db.Column(db.DateTime(timezone=True), nullable=False)
     submitted_at = db.Column(db.DateTime(timezone=True))
 

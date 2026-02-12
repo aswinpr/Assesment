@@ -1,50 +1,44 @@
-from datetime import timedelta
 from app.models.attempt import Attempt
-from app.extensions import db
 from app.services.similarity import answer_similarity
 
-SIMILARITY_THRESHOLD = 0.92
-TIME_WINDOW_MINUTES = 7
+SIMILARITY_DUP_THRESHOLD = 0.99
+SIMILARITY_FLAG_THRESHOLD = 0.90
 
 
-def deduplicate_attempt(new_attempt: Attempt):
-    """
-    Checks if new_attempt is a duplicate of an existing attempt.
-    Ensures:
-    - Only one canonical attempt
-    - All duplicates point to canonical.id
-    """
-
-    window_start = new_attempt.started_at - timedelta(minutes=TIME_WINDOW_MINUTES)
-    window_end = new_attempt.started_at + timedelta(minutes=TIME_WINDOW_MINUTES)
+def deduplicate_attempt(new_attempt):
 
     candidates = Attempt.query.filter(
-        Attempt.student_id == new_attempt.student_id,
         Attempt.test_id == new_attempt.test_id,
-        Attempt.started_at.between(window_start, window_end),
-        Attempt.id != new_attempt.id,
-        Attempt.status != "DEDUPED"  
+        Attempt.id != new_attempt.id
     ).all()
 
-    for candidate in candidates:
+    best_similarity = 0
+    best_match = None
+
+    for attempt in candidates:
         similarity = answer_similarity(
-            new_attempt.answers, candidate.answers
+            new_attempt.answers,
+            attempt.answers
         )
 
-        if similarity >= SIMILARITY_THRESHOLD:
-            # pick canonical (earliest started_at)
-            if candidate.started_at <= new_attempt.started_at:
-                canonical = candidate
-                duplicate = new_attempt
-            else:
-                canonical = new_attempt
-                duplicate = candidate
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_match = attempt
 
-            duplicate.status = "DEDUPED"
-            duplicate.duplicate_of_attempt_id = canonical.id
+    if best_match is None:
+        return "INGESTED", 0, None
 
-            db.session.flush()
-            return True, similarity, canonical.id
+    if best_similarity >= 0.99:
+        new_attempt.status = "DEDUPED"
+        new_attempt.duplicate_of_attempt_id = best_match.id
+        return "DEDUPED", best_similarity, best_match.id
 
-    return False, None, None
+    if (
+        best_similarity >= 0.90
+        and new_attempt.student_id != best_match.student_id
+    ):
+        new_attempt.status = "FLAGGED"
+        return "FLAGGED", best_similarity, best_match.id
+
+    return "INGESTED", best_similarity, None
 

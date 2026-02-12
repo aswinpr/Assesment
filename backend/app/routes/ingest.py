@@ -7,7 +7,7 @@ from app.services.identity import normalize_email, normalize_phone
 from app.services.datetime_utils import parse_iso_datetime
 from app.services.dedup import deduplicate_attempt
 from app.services.scoring import score_attempt
-from app.models.attempt_score import AttemptScore
+from app.services.flagging import flag_attempt
 
 bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 
@@ -15,6 +15,7 @@ bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 @bp.route("/attempts", methods=["POST"])
 def ingest_attempts():
     events = request.get_json()
+
     if not isinstance(events, list):
         return jsonify({"error": "Expected list of attempts"}), 400
 
@@ -40,6 +41,7 @@ def ingest_attempts():
             phone = student_data.get("phone")
 
             student = None
+
             if email:
                 email = normalize_email(email)
                 student = Student.query.filter_by(email=email).first()
@@ -60,10 +62,8 @@ def ingest_attempts():
             test = Test.query.filter_by(name=test_data["name"]).first()
 
             if not test:
-
                 negative_marking = test_data.get("negative_marking", 0)
 
-                # If JSON object → extract per_question
                 if isinstance(negative_marking, dict):
                     negative_marking = negative_marking.get("per_question", 0)
 
@@ -76,8 +76,20 @@ def ingest_attempts():
                 db.session.add(test)
                 db.session.flush()
 
+            
+            # IDEMPOTENCY GUARD (BEFORE CREATING ATTEMPT)
+            
+            existing_attempt = Attempt.query.filter_by(
+                source_event_id=event["source_event_id"]
+            ).first()
 
-            # ---- Create Attempt ----
+            if existing_attempt:
+                # Already processed → skip silently
+                continue
+
+            
+            # Create Attempt
+            
             attempt = Attempt(
                 student_id=student.id,
                 test_id=test.id,
@@ -92,25 +104,47 @@ def ingest_attempts():
             db.session.add(attempt)
             db.session.flush()
 
-            # ---- Deduplication ----
-            is_dup, similarity, canonical_id = deduplicate_attempt(attempt)
+           
 
-            if is_dup:
+            # Deduplication
+
+
+            status, similarity, canonical_id = deduplicate_attempt(attempt)
+
+            # ---- DUPLICATE ----
+            if status == "DEDUPED":
                 deduped += 1
-                continue  # do NOT score duplicates
+                continue
 
-            ## ---- Canonical attempt ----
-            ingested += 1
+            # ---- FLAGGED BY SIMILARITY ----
+            if status == "FLAGGED":
+                score_attempt(attempt)  # still score flagged attempts
+                attempt.status = "FLAGGED"
+                ingested += 1
+                continue
+
+
+            # CLEAN CANONICAL ATTEMPT
+
 
             score_attempt(attempt)
-            attempt.status = "SCORED"
+
+            # Additional rule-based flagging
+            is_flagged, reasons = flag_attempt(attempt)
+
+            if is_flagged:
+                attempt.status = "FLAGGED"
+                attempt.raw_payload["flag_reasons"] = reasons
+            else:
+                attempt.status = "SCORED"
+
+            ingested += 1
 
 
         except Exception as e:
             print("ERROR DURING INGEST:", str(e))
             db.session.rollback()
             continue
-
 
     db.session.commit()
 
