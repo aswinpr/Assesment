@@ -19,3 +19,11 @@ class Attempt(db.Model):
     raw_payload = db.Column(JSONB, nullable=False)
 
     status = db.Column(db.String, default="INGESTED")
+
+    
+    duplicate_of_attempt_id = db.Column(
+        db.UUID(as_uuid=True),
+        db.ForeignKey("attempts.id"),
+        nullable=True
+    )
+
