@@ -14,13 +14,12 @@ def score_attempt(attempt):
         return existing
 
     answers = attempt.answers or {}
+    answer_key = test.answer_key or {}
 
     total_questions = len(answers)
     correct = 0
     incorrect = 0
     skipped = 0
-
-    answer_key = getattr(test, "answer_key", {}) or {}
 
     for q_id, answer in answers.items():
 
@@ -36,7 +35,7 @@ def score_attempt(attempt):
             incorrect += 1
 
     raw_score = correct
-    negative_score = incorrect * test.negative_marking
+    negative_score = incorrect * float(test.negative_marking)
     final_score = raw_score - negative_score
 
     score = AttemptScore(
@@ -55,10 +54,7 @@ def score_attempt(attempt):
     )
 
     db.session.add(score)
-
-    # IMPORTANT LINE
     attempt.status = "SCORED"
-
     db.session.flush()
 
     return score

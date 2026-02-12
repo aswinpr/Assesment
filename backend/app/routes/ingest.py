@@ -8,6 +8,7 @@ from app.services.datetime_utils import parse_iso_datetime
 from app.services.dedup import deduplicate_attempt
 from app.services.scoring import score_attempt
 from app.services.flagging import flag_attempt
+from app.services.answer_key import generate_answer_key_from_answers
 
 bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 
@@ -26,8 +27,14 @@ def ingest_attempts():
     for event in events:
         try:
             # ---- Safe datetime parsing ----
-            started_at = parse_iso_datetime(event.get("started_at"))
-            submitted_at = parse_iso_datetime(event.get("submitted_at"))
+            started_at_raw = event.get("started_at")
+            submitted_at_raw = event.get("submitted_at")
+
+            started_at = parse_iso_datetime(started_at_raw)
+            submitted_at = parse_iso_datetime(submitted_at_raw)
+
+            print("RAW started_at:", started_at_raw)
+            print("PARSED started_at:", started_at)
 
             if not started_at:
                 skipped_invalid_timestamp += 1
@@ -62,15 +69,19 @@ def ingest_attempts():
             test = Test.query.filter_by(name=test_data["name"]).first()
 
             if not test:
+
                 negative_marking = test_data.get("negative_marking", 0)
 
                 if isinstance(negative_marking, dict):
                     negative_marking = negative_marking.get("per_question", 0)
 
+                synthetic_key = generate_answer_key_from_answers(event["answers"])
+
                 test = Test(
                     name=test_data["name"],
                     max_marks=test_data["max_marks"],
-                    negative_marking=float(negative_marking)
+                    negative_marking=float(negative_marking),
+                    answer_key=synthetic_key
                 )
 
                 db.session.add(test)
