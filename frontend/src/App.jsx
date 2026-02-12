@@ -1,25 +1,17 @@
-import { useEffect, useState } from "react";
-import api from "./api/client";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AttemptsList from "./pages/AttemptsList";
+import AttemptDetail from "./pages/AttemptDetail";
+import Leaderboard from "./pages/Leaderboard";
 
 function App() {
-  const [status, setStatus] = useState("loading...");
-
-  useEffect(() => {
-    api.get("/health")
-      .then(res => {
-        setStatus(res.data.status);
-      })
-      .catch(err => {
-        console.error(err);
-        setStatus("error");
-      });
-  }, []);
-
   return (
-    <div style={{ padding: "20px", backgroundColor: "#3d66e3", minWidth: "100px", color: "white", }}>
-      <h1>Assessment</h1>
-      <p>Backend status: <b>{status}</b></p>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AttemptsList />} />
+        <Route path="/attempt/:id" element={<AttemptDetail />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
