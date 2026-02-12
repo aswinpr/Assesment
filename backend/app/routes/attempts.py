@@ -48,25 +48,40 @@ def manual_flag(attempt_id):
 @bp.route("/<uuid:attempt_id>/recompute", methods=["POST"])
 def recompute_attempt(attempt_id):
 
-    attempt = Attempt.query.get_or_404(attempt_id)
+    attempt = Attempt.query.get(attempt_id)
 
-    # Delete existing score
-    AttemptScore.query.filter_by(
+    if not attempt:
+        return jsonify({"error": "Attempt not found"}), 404
+
+    # ❌ Do not recompute DEDUPED attempts
+    if attempt.status == "DEDUPED":
+        return jsonify({"error": "Cannot recompute deduplicated attempt"}), 400
+
+    # Remove existing score
+    existing_score = AttemptScore.query.filter_by(
         attempt_id=attempt.id
-    ).delete()
+    ).first()
 
-    db.session.flush()
+    if existing_score:
+        db.session.delete(existing_score)
+        db.session.flush()
 
-    # Re-score
-    score_attempt(attempt)
+    # Recompute score
+    new_score = score_attempt(attempt)
 
-    # Only change to SCORED if not flagged
-    if attempt.status != "FLAGGED":
+    # If not manually flagged → set to SCORED
+    has_manual_flag = Flag.query.filter_by(
+        attempt_id=attempt.id
+    ).first()
+
+    if not has_manual_flag:
         attempt.status = "SCORED"
 
     db.session.commit()
 
     return jsonify({
-        "message": "Attempt recomputed",
-        "attempt_id": str(attempt.id)
+        "attempt_id": str(attempt.id),
+        "new_score": new_score.final_score,
+        "status": attempt.status,
+        "message": "Recomputed successfully"
     }), 200
