@@ -88,14 +88,14 @@ def ingest_attempts():
                 db.session.flush()
 
             
-            # IDEMPOTENCY GUARD (BEFORE CREATING ATTEMPT)
+        
             
             existing_attempt = Attempt.query.filter_by(
                 source_event_id=event["source_event_id"]
             ).first()
 
             if existing_attempt:
-                # Already processed → skip silently
+               
                 continue
 
             

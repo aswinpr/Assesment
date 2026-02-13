@@ -210,7 +210,7 @@ def get_attempt(attempt_id):
     if attempt.score:
         score = attempt.score.final_score
 
-    # 🔹 Duplicate thread
+    #  Duplicate thread
     duplicates = Attempt.query.filter(
         db.or_(
             Attempt.id == attempt.duplicate_of_attempt_id,
@@ -227,7 +227,7 @@ def get_attempt(attempt_id):
         for a in duplicates
     ]
 
-    # 🔹 Flags
+    # Flags
     flags = Flag.query.filter_by(
         attempt_id=attempt.id
     ).order_by(Flag.created_at.desc()).all()
@@ -249,7 +249,7 @@ def get_attempt(attempt_id):
         "status": attempt.status,
         "score": score,
         "duplicate_of_attempt_id": attempt.duplicate_of_attempt_id,
-        "duplicate_thread": duplicate_thread,   # NEW
+        "duplicate_thread": duplicate_thread,  
         "raw_payload": attempt.raw_payload,
         "flags": flag_data
     }), 200

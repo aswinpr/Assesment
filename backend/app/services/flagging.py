@@ -9,7 +9,7 @@ def flag_attempt(attempt, similarity=None):
 
     reasons = []
 
-    # ---- Rule 1: Suspiciously short duration ----
+    # Suspiciously short duration 
     if attempt.started_at and attempt.submitted_at:
         duration = attempt.submitted_at - attempt.started_at
 
@@ -17,14 +17,14 @@ def flag_attempt(attempt, similarity=None):
         if duration < timedelta(minutes=5):
             reasons.append("SUSPICIOUS_DURATION")
 
-    # ---- Rule 2: Perfect score anomaly ----
+    # Perfect score anomaly ----
     if attempt.score:
         score = attempt.score
 
         if score.correct == score.total_questions and score.total_questions > 0:
             reasons.append("PERFECT_SCORE")
 
-    # ---- Rule 3: High similarity but not deduped ----
+    # High similarity but not deduped 
     if similarity and similarity > 0.95:
         reasons.append("HIGH_SIMILARITY_PATTERN")
 

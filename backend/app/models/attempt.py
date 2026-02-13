@@ -12,7 +12,7 @@ class Attempt(db.Model):
     test_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("tests.id"))
 
     student = db.relationship("Student", backref="attempts")
-    test = db.relationship("Test", backref="attempts")  # ✅ REQUIRED
+    test = db.relationship("Test", backref="attempts")  
 
     source_event_id = db.Column(db.String, unique=True, nullable=False)
 
