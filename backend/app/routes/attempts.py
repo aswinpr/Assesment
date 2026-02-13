@@ -96,22 +96,17 @@ def recompute_attempt(attempt_id):
 @bp.route("", methods=["GET"])
 def list_attempts():
 
-   
-    # Query Parameters
-   
     test_id = request.args.get("test_id")
     student_id = request.args.get("student_id")
     status = request.args.get("status")
     has_duplicates = request.args.get("has_duplicates")
+    search = request.args.get("search")
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
     page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 20))
+    per_page = int(request.args.get("per_page", 20))
 
-   
-    # Base Query
-   
     query = (
         db.session.query(Attempt)
         .outerjoin(AttemptScore, AttemptScore.attempt_id == Attempt.id)
@@ -119,9 +114,7 @@ def list_attempts():
         .outerjoin(Test, Test.id == Attempt.test_id)
     )
 
-   
     # Filters
-   
 
     if test_id:
         query = query.filter(Attempt.test_id == test_id)
@@ -138,6 +131,16 @@ def list_attempts():
         elif has_duplicates.lower() == "false":
             query = query.filter(Attempt.duplicate_of_attempt_id.is_(None))
 
+    if search:
+        search_term = f"%{search.lower()}%"
+        query = query.filter(
+            db.or_(
+                db.func.lower(Student.full_name).like(search_term),
+                db.func.lower(Student.email).like(search_term),
+                db.func.lower(Student.phone).like(search_term)
+            )
+        )
+
     if date_from:
         parsed_from = parse_iso_datetime(date_from)
         if parsed_from:
@@ -148,23 +151,17 @@ def list_attempts():
         if parsed_to:
             query = query.filter(Attempt.submitted_at <= parsed_to)
 
-   
-    # Default Sorting
-   
     query = query.order_by(desc(Attempt.submitted_at))
 
     total = query.count()
 
     attempts = (
         query
-        .offset((page - 1) * limit)
-        .limit(limit)
+        .offset((page - 1) * per_page)
+        .limit(per_page)
         .all()
     )
 
-   
-    # Response
-   
     response = []
 
     for attempt in attempts:
@@ -179,49 +176,49 @@ def list_attempts():
             "test_id": str(attempt.test_id),
             "test_name": attempt.test.name,
             "status": attempt.status,
-            "final_score": score,
+            "score": score,
+            "duplicate_of_attempt_id": str(attempt.duplicate_of_attempt_id) if attempt.duplicate_of_attempt_id else None,
             "submitted_at": attempt.submitted_at
         })
 
     return jsonify({
         "total": total,
         "page": page,
-        "limit": limit,
+        "per_page": per_page,
         "data": response
     }), 200
+
 
 @bp.route("/<uuid:attempt_id>", methods=["GET"])
 def get_attempt(attempt_id):
 
-    attempt = (
-        db.session.query(Attempt)
-        .outerjoin(AttemptScore, AttemptScore.attempt_id == Attempt.id)
-        .outerjoin(Student, Student.id == Attempt.student_id)
-        .outerjoin(Test, Test.id == Attempt.test_id)
-        .filter(Attempt.id == attempt_id)
-        .first()
-    )
-
-    if not attempt:
-        return jsonify({"error": "Attempt not found"}), 404
+    attempt = Attempt.query.get_or_404(attempt_id)
 
     score = None
     if attempt.score:
         score = attempt.score.final_score
 
+    flags = Flag.query.filter_by(
+        attempt_id=attempt.id
+    ).order_by(Flag.created_at.desc()).all()
+
+    flag_data = []
+    for f in flags:
+        flag_data.append({
+            "id": str(f.id),
+            "reason": f.reason,
+            "details": f.details,
+            "created_at": f.created_at
+        })
+
     return jsonify({
         "id": str(attempt.id),
-        "student_id": str(attempt.student_id),
         "student_name": attempt.student.full_name,
-        "test_id": str(attempt.test_id),
         "test_name": attempt.test.name,
         "status": attempt.status,
         "score": score,
-        "submitted_at": attempt.submitted_at,
-        "duplicate_of_attempt_id": (
-            str(attempt.duplicate_of_attempt_id)
-            if attempt.duplicate_of_attempt_id
-            else None
-        ),
-        "raw_payload": attempt.raw_payload
+        "duplicate_of_attempt_id": attempt.duplicate_of_attempt_id,
+        "raw_payload": attempt.raw_payload,
+        "flags": flag_data
     }), 200
+

@@ -43,6 +43,20 @@ function AttemptDetail() {
         overflowX: "auto"
       }}>
         {JSON.stringify(attempt.raw_payload, null, 2)}
+        <h3>Flags</h3>
+
+        {attempt.flags && attempt.flags.length > 0 ? (
+          <ul>
+            {attempt.flags.map((flag) => (
+              <li key={flag.id} style={{ marginBottom: 10 }}>
+                <strong>{flag.reason}</strong><br />
+                <small>{new Date(flag.created_at).toLocaleString()}</small>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No flags</p>
+        )}
       </pre>
     </div>
   );

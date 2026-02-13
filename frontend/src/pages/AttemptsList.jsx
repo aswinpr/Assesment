@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 function AttemptsList() {
   const [attempts, setAttempts] = useState([]);
+  const [tests, setTests] = useState([]);   // ✅ NEW
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -14,32 +15,54 @@ function AttemptsList() {
     search: ""
   });
 
-  const fetchAttempts = async () => {
-    const res = await api.get("/attempts", {
-      params: {
-        ...filters,
-        page,
-        per_page: 20
-      }
-    });
-
-    const total = res.data.total;
-    const perPage = 20;
-    const computedTotalPages = Math.ceil(total / perPage);
-
-    setAttempts(res.data.data);
-    setTotalPages(computedTotalPages);
+  // ✅ Fetch tests for dropdown
+  const fetchTests = async () => {
+    const res = await api.get("/analytics/test-summary");
+    setTests(res.data);
   };
 
+  const fetchAttempts = async () => {
+  const res = await api.get("/attempts", {
+    params: {
+      ...filters,
+      page,
+      per_page: 20
+    }
+  });
+
+  console.log("Attempts API Response:", res.data.data); 
+
+  const total = res.data.total;
+  const perPage = res.data.per_page;
+
+  setAttempts(res.data.data);
+  setTotalPages(Math.ceil(total / perPage));
+};
+
+  // Load tests once
+  useEffect(() => {
+    fetchTests();
+  }, []);
+
+  // Load attempts when page changes
   useEffect(() => {
     fetchAttempts();
-  }, [page]);
+  }, [page, filters]);
 
   const handleChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
+  const { name, value } = e.target;
 
-  // --- Readability-Focused Styling ---
+  setFilters(prev => ({
+    ...prev,
+    [name]: value
+  }));
+
+  // Reset to first page when filter changes
+  setPage(1);
+};
+
+
+  // --- Styling (unchanged) ---
   const containerStyle = {
     padding: "40px",
     backgroundColor: "#f8f9fa",
@@ -69,7 +92,7 @@ function AttemptsList() {
     padding: "12px 16px",
     borderRadius: "8px",
     border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff", 
+    backgroundColor: "#ffffff",
     outline: "none",
     fontSize: "15px",
     width: "300px",
@@ -80,11 +103,11 @@ function AttemptsList() {
     padding: "12px 16px",
     borderRadius: "8px",
     border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff", 
+    backgroundColor: "#ffffff",
     fontSize: "15px",
     cursor: "pointer",
     color: "#374151",
-    minWidth: "160px",
+    minWidth: "180px",
   };
 
   const buttonStyle = {
@@ -96,7 +119,6 @@ function AttemptsList() {
     fontWeight: "600",
     fontSize: "15px",
     cursor: "pointer",
-    transition: "background 0.2s ease",
   };
 
   const tableStyle = {
@@ -118,7 +140,6 @@ function AttemptsList() {
     fontSize: "13px",
     textTransform: "uppercase",
     fontWeight: "700",
-    letterSpacing: "0.05em",
     borderBottom: "2px solid #f3f4f6",
   };
 
@@ -126,8 +147,7 @@ function AttemptsList() {
     padding: "18px 24px",
     borderBottom: "1px solid #f3f4f6",
     fontSize: "15px",
-    color: "#1f2937", // Darker text for better contrast
-    lineHeight: "1.5",
+    color: "#1f2937",
   };
 
   const paginationButtonStyle = (disabled) => ({
@@ -139,7 +159,6 @@ function AttemptsList() {
     cursor: disabled ? "not-allowed" : "pointer",
     fontWeight: "600",
     fontSize: "14px",
-    transition: "all 0.2s",
   });
 
   const statusBadgeStyle = (status) => {
@@ -172,32 +191,67 @@ function AttemptsList() {
 
       {/* Filters */}
       <div style={filterContainerStyle}>
-        <input
-          style={inputStyle}
-          placeholder="Search student name..."
-          name="search"
-          onChange={handleChange}
-        />
 
-        <select style={selectStyle} name="status" onChange={handleChange}>
-          <option value="">All Status</option>
-          <option value="SCORED">SCORED</option>
-          <option value="DEDUPED">DEDUPED</option>
-          <option value="FLAGGED">FLAGGED</option>
-        </select>
+          <input
+            style={inputStyle}
+            placeholder="Search student name..."
+            name="search"
+            value={filters.search}
+            onChange={handleChange}
+          />
 
-        <button
-          style={buttonStyle}
-          onClick={() => {
-            setPage(1);
-            fetchAttempts();
-          }}
-          onMouseOver={(e) => (e.target.style.backgroundColor = "#0056b3")}
-          onMouseOut={(e) => (e.target.style.backgroundColor = "#007bff")}
-        >
-          Apply Filters
-        </button>
+          {/* Test Filter */}
+          <select
+            style={selectStyle}
+            name="test_id"
+            value={filters.test_id}
+            onChange={handleChange}
+          >
+            <option value="">All Tests</option>
+            {tests.map((t) => (
+              <option key={t.test_id} value={t.test_id}>
+                {t.test_name}
+              </option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            style={selectStyle}
+            name="status"
+            value={filters.status}
+            onChange={handleChange}
+          >
+            <option value="">All Status</option>
+            <option value="SCORED">SCORED</option>
+            <option value="DEDUPED">DEDUPED</option>
+            <option value="FLAGGED">FLAGGED</option>
+          </select>
+
+          {/* ✅ NEW has_duplicates Filter */}
+          <select
+            style={selectStyle}
+            name="has_duplicates"
+            value={filters.has_duplicates}
+            onChange={handleChange}
+          >
+            <option value="">All Attempts</option>
+            <option value="true">Only Duplicates</option>
+            <option value="false">No Duplicates</option>
+          </select>
+
+          <button
+            style={buttonStyle}
+            onClick={() => {
+              setPage(1);
+              fetchAttempts();
+            }}
+          >
+            Apply Filters
+          </button>
+
       </div>
+
 
       {/* Table */}
       <div style={{ overflowX: "auto" }}>
@@ -213,9 +267,7 @@ function AttemptsList() {
           </thead>
           <tbody>
             {attempts.map((a) => (
-              <tr key={a.attempt_id} style={{ transition: "background 0.2s" }} 
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#f9fafb")}
-                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
+              <tr key={a.attempt_id}>
                 <td style={tdStyle}>
                   <Link to={`/attempt/${a.attempt_id}`} style={linkStyle}>
                     {a.student_name}
@@ -227,17 +279,11 @@ function AttemptsList() {
                     {a.status}
                   </span>
                 </td>
-                <td style={{ ...tdStyle, fontWeight: "700", color: "#111827" }}>
+                <td style={{ ...tdStyle, fontWeight: "700" }}>
                   {a.score ?? "-"}
                 </td>
                 <td style={tdStyle}>
-                  {a.duplicate_of_attempt_id ? (
-                    <span style={{ color: "#dc2626", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                      ⚠️ Yes
-                    </span>
-                  ) : (
-                    <span style={{ color: "#9ca3af" }}>No</span>
-                  )}
+                  {a.duplicate_of_attempt_id ? "Yes" : "No"}
                 </td>
               </tr>
             ))}
@@ -246,7 +292,7 @@ function AttemptsList() {
       </div>
 
       {/* Pagination */}
-      <div style={{ marginTop: "30px", display: "flex", alignItems: "center", gap: "20px", justifyContent: "center" }}>
+      <div style={{ marginTop: "30px", display: "flex", justifyContent: "center", gap: "20px" }}>
         <button
           style={paginationButtonStyle(page === 1)}
           disabled={page === 1}
@@ -255,8 +301,8 @@ function AttemptsList() {
           ← Previous
         </button>
 
-        <span style={{ fontWeight: "600", color: "#374151", fontSize: "15px" }}>
-          Page {page} <span style={{ color: "#9ca3af", fontWeight: "400" }}>of</span> {totalPages}
+        <span>
+          Page {page} of {totalPages}
         </span>
 
         <button
