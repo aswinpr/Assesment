@@ -189,3 +189,39 @@ def list_attempts():
         "limit": limit,
         "data": response
     }), 200
+
+@bp.route("/<uuid:attempt_id>", methods=["GET"])
+def get_attempt(attempt_id):
+
+    attempt = (
+        db.session.query(Attempt)
+        .outerjoin(AttemptScore, AttemptScore.attempt_id == Attempt.id)
+        .outerjoin(Student, Student.id == Attempt.student_id)
+        .outerjoin(Test, Test.id == Attempt.test_id)
+        .filter(Attempt.id == attempt_id)
+        .first()
+    )
+
+    if not attempt:
+        return jsonify({"error": "Attempt not found"}), 404
+
+    score = None
+    if attempt.score:
+        score = attempt.score.final_score
+
+    return jsonify({
+        "id": str(attempt.id),
+        "student_id": str(attempt.student_id),
+        "student_name": attempt.student.full_name,
+        "test_id": str(attempt.test_id),
+        "test_name": attempt.test.name,
+        "status": attempt.status,
+        "score": score,
+        "submitted_at": attempt.submitted_at,
+        "duplicate_of_attempt_id": (
+            str(attempt.duplicate_of_attempt_id)
+            if attempt.duplicate_of_attempt_id
+            else None
+        ),
+        "raw_payload": attempt.raw_payload
+    }), 200
