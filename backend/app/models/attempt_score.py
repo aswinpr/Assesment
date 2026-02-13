@@ -19,6 +19,9 @@ class AttemptScore(db.Model):
     incorrect = db.Column(db.Integer, nullable=False)
     skipped = db.Column(db.Integer, nullable=False)
 
+    net_correct = db.Column(db.Integer)
+    accuracy = db.Column(db.Float)
+
     raw_score = db.Column(db.Float, nullable=False)
     negative_score = db.Column(db.Float, nullable=False)
     final_score = db.Column(db.Float, nullable=False)

@@ -10,7 +10,7 @@ class Test(db.Model):
     name = db.Column(db.String, nullable=False)
     max_marks = db.Column(db.Integer, nullable=False)
 
-    negative_marking = db.Column(db.Float, nullable=False)   # ← FIXED
+    negative_marking = db.Column(JSONB, nullable=True)   # ← FIXED
 
     answer_key = db.Column(JSONB, nullable=True)
 

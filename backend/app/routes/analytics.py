@@ -67,7 +67,6 @@ def leaderboard():
         db.session.query(Attempt)
         .join(AttemptScore, AttemptScore.attempt_id == Attempt.id)
         .join(Student, Student.id == Attempt.student_id)
-        .join(Test, Test.id == Attempt.test_id)
         .filter(
             Attempt.test_id == test_id,
             Attempt.status == "SCORED"
@@ -77,46 +76,29 @@ def leaderboard():
     )
 
     leaderboard_data = []
-    rank = 0
     prev_score = None
     dense_rank = 0
 
     for attempt in attempts:
 
-        score = attempt.score.final_score
+        score_obj = attempt.score  # use stored score
+
+        score = score_obj.final_score
 
         if score != prev_score:
             dense_rank += 1
         prev_score = score
 
-        answers = attempt.raw_payload.get("answers", {})
-        answer_key = attempt.test.answer_key or {}
-
-        correct = 0
-        wrong = 0
-        skipped = 0
-
-        for q, student_ans in answers.items():
-            correct_ans = answer_key.get(q)
-
-            if student_ans == "SKIP":
-                skipped += 1
-            elif student_ans == correct_ans:
-                correct += 1
-            else:
-                wrong += 1
-
-        total_questions = len(answer_key)
-        accuracy = (correct / total_questions * 100) if total_questions else 0
-
         leaderboard_data.append({
+            "attempt_id": str(attempt.id),
             "rank": dense_rank,
             "student_name": attempt.student.full_name,
-            "score": score,
-            "correct": correct,
-            "wrong": wrong,
-            "skipped": skipped,
-            "accuracy": round(accuracy, 2)
+            "score": score_obj.final_score,
+            "correct": score_obj.correct,
+            "incorrect": score_obj.incorrect,
+            "skipped": score_obj.skipped,
+            "accuracy": score_obj.accuracy
         })
 
     return jsonify(leaderboard_data), 200
+

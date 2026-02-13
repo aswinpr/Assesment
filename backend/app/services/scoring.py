@@ -7,32 +7,24 @@ import time
 def score_attempt(attempt):
 
     start_time = time.time()
-
     test = attempt.test
 
+    # Prevent double scoring
     existing = AttemptScore.query.filter_by(
         attempt_id=attempt.id
     ).first()
 
     if existing:
-        current_app.logger.info(
-            "Score already exists — skipping recompute",
-            extra={
-                "channel": "scoring",
-                "context": {
-                    "request_id": getattr(g, "request_id", None),
-                    "attempt_id": str(attempt.id),
-                    "student_id": str(attempt.student_id)
-                },
-                "extra_data": {
-                    "final_score": existing.final_score
-                }
-            }
-        )
         return existing
 
     answers = attempt.answers or {}
     answer_key = test.answer_key or {}
+    marking = test.negative_marking or {}
+
+    # Extract marking safely
+    correct_marks = float(marking.get("correct", 1))
+    wrong_marks = float(marking.get("wrong", 0))
+    skip_marks = float(marking.get("skip", 0))
 
     total_questions = len(answers)
     correct = 0
@@ -52,9 +44,22 @@ def score_attempt(attempt):
         else:
             incorrect += 1
 
-    raw_score = correct
-    negative_score = incorrect * float(test.negative_marking)
-    final_score = raw_score - negative_score
+    # ---- Required Metrics ----
+
+    net_correct = correct - incorrect
+
+    attempted = correct + incorrect
+    accuracy = round((correct / attempted) * 100, 2) if attempted > 0 else 0.0
+
+    final_score = (
+        correct * correct_marks +
+        incorrect * wrong_marks +
+        skipped * skip_marks
+    )
+
+    negative_score = incorrect * abs(wrong_marks)
+
+    # ---- Save Score ----
 
     score = AttemptScore(
         attempt_id=attempt.id,
@@ -62,12 +67,14 @@ def score_attempt(attempt):
         correct=correct,
         incorrect=incorrect,
         skipped=skipped,
-        raw_score=raw_score,
+        raw_score=correct,
         negative_score=negative_score,
+        net_correct=net_correct,
+        accuracy=accuracy,
         final_score=final_score,
         explanation={
-            "formula": "correct - (incorrect * negative_marking)",
-            "negative_marking": test.negative_marking
+            "formula": "correct*correct_marks + incorrect*wrong_marks + skipped*skip_marks",
+            "negative_marking": marking
         }
     )
 
@@ -75,9 +82,10 @@ def score_attempt(attempt):
     attempt.status = "SCORED"
     db.session.flush()
 
+    # ---- Structured Log ----
+
     duration = round((time.time() - start_time) * 1000, 2)
 
-    # ✅ Structured Scoring Log
     current_app.logger.info(
         "Scoring completed",
         extra={
@@ -91,7 +99,8 @@ def score_attempt(attempt):
                 "correct": correct,
                 "incorrect": incorrect,
                 "skipped": skipped,
-                "total_questions": total_questions,
+                "net_correct": net_correct,
+                "accuracy": accuracy,
                 "final_score": final_score,
                 "duration_ms": duration
             }

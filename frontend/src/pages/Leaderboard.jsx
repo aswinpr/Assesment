@@ -60,46 +60,58 @@ function Leaderboard() {
 
       {!loading && leaders.length > 0 && (
         <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Rank</th>
-                <th style={styles.th}>Student</th>
-                <th style={styles.th}>Score</th>
-                <th style={styles.th}>Correct</th>
-                <th style={styles.th}>Wrong</th>
-                <th style={styles.th}>Skipped</th>
-                <th style={styles.th}>Accuracy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaders.map((l, index) => (
-                <tr key={index} style={styles.tr}>
-                  <td style={styles.td}>
-                    <span style={styles.rankBadge}>{l.rank}</span>
-                  </td>
-                  <td style={{ ...styles.td, fontWeight: "600", color: "#111827" }}>
-                    {l.student_name}
-                  </td>
-                  <td style={{ ...styles.td, fontWeight: "700" }}>
-                    {l.score}
-                  </td>
-                  <td style={{ ...styles.td, color: "#15803d", fontWeight: "600" }}>
-                    {l.correct}
-                  </td>
-                  <td style={{ ...styles.td, color: "#b91c1c", fontWeight: "600" }}>
-                    {l.wrong}
-                  </td>
-                  <td style={{ ...styles.td, color: "#a16207", fontWeight: "600" }}>
-                    {l.skipped}
-                  </td>
-                  <td style={{ ...styles.td, fontWeight: "600" }}>
-                    {l.accuracy}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          
+{/* Table */}
+{!loading && leaders.length > 0 && (
+  <table style={styles.table}>
+    <thead>
+      <tr>
+        <th style={styles.th}>Rank</th>
+        <th style={styles.th}>Student</th>
+        <th style={styles.th}>Score</th>
+        <th style={styles.th}>Correct</th>
+        <th style={styles.th}>Incorrect</th>
+        <th style={styles.th}>Skipped</th>
+        <th style={styles.th}>Accuracy</th>
+      </tr>
+    </thead>
+    <tbody>
+      {leaders.map((l) => (
+        <tr key={l.attempt_id} style={styles.tr}>
+          <td style={styles.td}>
+            <span style={styles.rankBadge}>{l.rank}</span>
+          </td>
+
+          <td style={{ ...styles.td, fontWeight: "600" }}>
+            {l.student_name}
+          </td>
+
+          <td style={{ ...styles.td, fontWeight: "700" }}>
+            {l.score}
+          </td>
+
+          <td style={{ ...styles.td, color: "#15803d", fontWeight: "600" }}>
+            {l.correct}
+          </td>
+
+          <td style={{ ...styles.td, color: "#dc2626", fontWeight: "600" }}>
+            {l.incorrect}
+          </td>
+
+          <td style={{ ...styles.td, color: "#a16207", fontWeight: "600" }}>
+            {l.skipped}
+          </td>
+
+          <td style={{ ...styles.td, fontWeight: "600" }}>
+            {l.accuracy?.toFixed(2)}%
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+
+
         </div>
       )}
 

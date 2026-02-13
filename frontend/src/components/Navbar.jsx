@@ -34,9 +34,6 @@ export default function Navbar() {
         Leaderboard
       </Link>
 
-      <Link to="/test-summary" style={linkStyle("/test-summary")}>
-        Test Summary
-      </Link>
     </div>
   );
 }
