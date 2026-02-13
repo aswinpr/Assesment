@@ -9,6 +9,7 @@ from app.models.student import Student
 from app.models.test import Test
 from sqlalchemy import desc, asc
 from app.services.datetime_utils import parse_iso_datetime
+from flask import current_app, g
 
 
 bp = Blueprint("attempts", __name__, url_prefix="/api/attempts")
@@ -42,6 +43,20 @@ def manual_flag(attempt_id):
     attempt.status = "FLAGGED"
 
     db.session.commit()
+
+    current_app.logger.info(
+    "Manual flag created",
+    extra={
+        "channel": "db",
+        "context": {
+            "request_id": getattr(g, "request_id", None),
+            "attempt_id": str(attempt.id)
+        },
+        "extra_data": {
+            "reason": reason
+        }
+    }
+)
 
     return jsonify({
         "message": "Attempt flagged",

@@ -1,8 +1,12 @@
 from app.models.attempt_score import AttemptScore
 from app.extensions import db
+from flask import current_app, g
+import time
 
 
 def score_attempt(attempt):
+
+    start_time = time.time()
 
     test = attempt.test
 
@@ -11,6 +15,20 @@ def score_attempt(attempt):
     ).first()
 
     if existing:
+        current_app.logger.info(
+            "Score already exists — skipping recompute",
+            extra={
+                "channel": "scoring",
+                "context": {
+                    "request_id": getattr(g, "request_id", None),
+                    "attempt_id": str(attempt.id),
+                    "student_id": str(attempt.student_id)
+                },
+                "extra_data": {
+                    "final_score": existing.final_score
+                }
+            }
+        )
         return existing
 
     answers = attempt.answers or {}
@@ -56,5 +74,28 @@ def score_attempt(attempt):
     db.session.add(score)
     attempt.status = "SCORED"
     db.session.flush()
+
+    duration = round((time.time() - start_time) * 1000, 2)
+
+    # ✅ Structured Scoring Log
+    current_app.logger.info(
+        "Scoring completed",
+        extra={
+            "channel": "scoring",
+            "context": {
+                "request_id": getattr(g, "request_id", None),
+                "attempt_id": str(attempt.id),
+                "student_id": str(attempt.student_id)
+            },
+            "extra_data": {
+                "correct": correct,
+                "incorrect": incorrect,
+                "skipped": skipped,
+                "total_questions": total_questions,
+                "final_score": final_score,
+                "duration_ms": duration
+            }
+        }
+    )
 
     return score
