@@ -5,112 +5,49 @@ function Leaderboard() {
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState("");
   const [leaders, setLeaders] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    api.get("/analytics/test-summary").then((res) => {
-      setTests(res.data);
-    });
-  }, []);
+  const fetchTests = async () => {
+    const res = await api.get("/analytics/test-summary");
+    setTests(res.data);
+  };
 
   const fetchLeaderboard = async (testId) => {
-    const res = await api.get("/analytics/leaderboard", {
-      params: { test_id: testId },
-    });
-    setLeaders(res.data);
+    if (!testId) return;
+    setLoading(true);
+    try {
+      const res = await api.get("/analytics/leaderboard", {
+        params: { test_id: testId }
+      });
+      setLeaders(res.data);
+    } catch (err) {
+      console.error("Leaderboard error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- Styling Logic ---
-  const containerStyle = {
-    padding: "40px",
-    backgroundColor: "#f8f9fa",
-    minHeight: "100vh",
-    fontFamily: "'Inter', sans-serif",
-  };
+  useEffect(() => {
+    fetchTests();
+  }, []);
 
-  const headerStyle = {
-    fontSize: "24px",
-    fontWeight: "600",
-    color: "#212529",
-    marginBottom: "20px",
-  };
-
-  const selectContainerStyle = {
-    marginBottom: "25px",
-  };
-
-  const selectStyle = {
-    padding: "10px 15px",
-    borderRadius: "8px",
-    border: "1px solid #ced4da",
-    backgroundColor: "#626060",
-    fontSize: "14px",
-    cursor: "pointer",
-    minWidth: "250px",
-    outline: "none",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-  };
-
-  const tableStyle = {
-    width: "100%",
-    maxWidth: "800px", // Leaderboards usually look better slightly narrower
-    borderCollapse: "separate",
-    borderSpacing: "0",
-    backgroundColor: "#ffffff",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
-    overflow: "hidden",
-    border: "1px solid #e9ecef",
-  };
-
-  const thStyle = {
-    padding: "15px 20px",
-    backgroundColor: "#f1f3f5",
-    color: "#495057",
-    textAlign: "left",
-    fontSize: "13px",
-    textTransform: "uppercase",
-    fontWeight: "600",
-    borderBottom: "1px solid #dee2e6",
-  };
-
-  const tdStyle = {
-    padding: "15px 20px",
-    borderBottom: "1px solid #f1f3f5",
-    fontSize: "15px",
-    color: "#495057",
-  };
-
-  const rankBadgeStyle = (rank) => {
-    const isTopThree = rank <= 3;
-    return {
-      display: "inline-block",
-      width: "28px",
-      height: "28px",
-      lineHeight: "28px",
-      textAlign: "center",
-      borderRadius: "50%",
-      fontWeight: "bold",
-      fontSize: "13px",
-      backgroundColor: rank === 1 ? "#FFD700" : rank === 2 ? "#C0C0C0" : rank === 3 ? "#CD7F32" : "transparent",
-      color: isTopThree ? "#fff" : "#495057",
-      textShadow: isTopThree ? "0px 1px 2px rgba(0,0,0,0.2)" : "none",
-    };
+  const handleTestChange = (e) => {
+    const testId = e.target.value;
+    setSelectedTest(testId);
+    fetchLeaderboard(testId);
   };
 
   return (
-    <div style={containerStyle}>
-      <h2 style={headerStyle}>Leaderboard</h2>
+    <div style={styles.container}>
+      <h2 style={styles.heading}>Leaderboard</h2>
 
-      <div style={selectContainerStyle}>
+      <div style={styles.filterBox}>
         <select
-          style={selectStyle}
           value={selectedTest}
-          onChange={(e) => {
-            setSelectedTest(e.target.value);
-            fetchLeaderboard(e.target.value);
-          }}
+          onChange={handleTestChange}
+          style={styles.select}
         >
-          <option value="">Select Test to View Results</option>
+          <option value="">Select Test</option>
           {tests.map((t) => (
             <option key={t.test_id} value={t.test_id}>
               {t.test_name}
@@ -119,38 +56,137 @@ function Leaderboard() {
         </select>
       </div>
 
-      {leaders.length > 0 ? (
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Rank</th>
-              <th style={thStyle}>Student</th>
-              <th style={thStyle}>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaders.map((l) => (
-              <tr key={l.attempt_id}>
-                <td style={tdStyle}>
-                  <span style={rankBadgeStyle(l.rank)}>{l.rank}</span>
-                </td>
-                <td style={{ ...tdStyle, fontWeight: l.rank <= 3 ? "600" : "400" }}>
-                  {l.student_name}
-                </td>
-                <td style={{ ...tdStyle, fontWeight: "bold", color: "#007bff" }}>
-                  {l.score}
-                </td>
+      {loading && <p style={styles.loading}>Loading leaderboard...</p>}
+
+      {!loading && leaders.length > 0 && (
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Rank</th>
+                <th style={styles.th}>Student</th>
+                <th style={styles.th}>Score</th>
+                <th style={styles.th}>Correct</th>
+                <th style={styles.th}>Wrong</th>
+                <th style={styles.th}>Skipped</th>
+                <th style={styles.th}>Accuracy</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div style={{ color: "#adb5bd", fontStyle: "italic", marginTop: "20px" }}>
-          {selectedTest ? "No data found for this test." : "Please select a test to see the rankings."}
+            </thead>
+            <tbody>
+              {leaders.map((l, index) => (
+                <tr key={index} style={styles.tr}>
+                  <td style={styles.td}>
+                    <span style={styles.rankBadge}>{l.rank}</span>
+                  </td>
+                  <td style={{ ...styles.td, fontWeight: "600", color: "#111827" }}>
+                    {l.student_name}
+                  </td>
+                  <td style={{ ...styles.td, fontWeight: "700" }}>
+                    {l.score}
+                  </td>
+                  <td style={{ ...styles.td, color: "#15803d", fontWeight: "600" }}>
+                    {l.correct}
+                  </td>
+                  <td style={{ ...styles.td, color: "#b91c1c", fontWeight: "600" }}>
+                    {l.wrong}
+                  </td>
+                  <td style={{ ...styles.td, color: "#a16207", fontWeight: "600" }}>
+                    {l.skipped}
+                  </td>
+                  <td style={{ ...styles.td, fontWeight: "600" }}>
+                    {l.accuracy}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      )}
+
+      {!loading && selectedTest && leaders.length === 0 && (
+        <p style={styles.noData}>No leaderboard data available</p>
       )}
     </div>
   );
 }
+
+const styles = {
+  container: {
+    padding: "40px",
+    minHeight: "100vh",
+    background: "#f4f7f6",
+    fontFamily: "'Inter', sans-serif",
+    color: "#1a1a1a"
+  },
+  heading: {
+    fontSize: "26px",
+    fontWeight: "700",
+    marginBottom: "25px",
+    color: "#111827"
+  },
+  filterBox: {
+    marginBottom: "25px"
+  },
+  select: {
+    padding: "12px 16px",
+    borderRadius: "8px",
+    border: "2px solid #e5e7eb",
+    fontSize: "15px",
+    minWidth: "250px",
+    background: "#ffffff",
+    color: "#374151",
+    outline: "none"
+  },
+  loading: {
+    color: "#4b5563",
+    fontWeight: "500"
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto", // Enables horizontal scrolling
+    borderRadius: "12px",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+    background: "#ffffff",
+    border: "1px solid #e5e7eb"
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: "800px", // Ensures scrollbar triggers on smaller screens
+  },
+  th: {
+    textAlign: "left",
+    padding: "16px",
+    background: "#f8fafc",
+    color: "#475569",
+    fontSize: "12px",
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+    fontWeight: "700",
+    borderBottom: "2px solid #e2e8f0",
+    whiteSpace: "nowrap"
+  },
+  td: {
+    padding: "16px",
+    borderBottom: "1px solid #f1f5f9",
+    fontSize: "14px",
+    color: "#334155",
+    whiteSpace: "nowrap"
+  },
+  tr: {
+    transition: "background 0.2s"
+  },
+  rankBadge: {
+    background: "#f1f5f9",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    fontWeight: "700",
+    color: "#475569"
+  },
+  noData: {
+    color: "#6b7280",
+    marginTop: "20px"
+  }
+};
 
 export default Leaderboard;

@@ -58,48 +58,65 @@ def test_summary():
 
 @bp.route("/leaderboard", methods=["GET"])
 def leaderboard():
-    from flask import request
 
     test_id = request.args.get("test_id")
-
     if not test_id:
         return jsonify({"error": "test_id is required"}), 400
 
-    results = (
-        db.session.query(
-            Attempt.id.label("attempt_id"),
-            Attempt.submitted_at,
-            AttemptScore.final_score,
-            Student.full_name.label("student_name")
-        )
+    attempts = (
+        db.session.query(Attempt)
         .join(AttemptScore, AttemptScore.attempt_id == Attempt.id)
         .join(Student, Student.id == Attempt.student_id)
-        .filter(Attempt.test_id == test_id)
-        .filter(Attempt.status == "SCORED")
-        .order_by(
-            AttemptScore.final_score.desc(),
-            Attempt.submitted_at.asc()
+        .join(Test, Test.id == Attempt.test_id)
+        .filter(
+            Attempt.test_id == test_id,
+            Attempt.status == "SCORED"
         )
+        .order_by(AttemptScore.final_score.desc())
         .all()
     )
 
-    leaderboard = []
-    current_rank = 0
-    last_score = None
+    leaderboard_data = []
+    rank = 0
+    prev_score = None
+    dense_rank = 0
 
-    for index, row in enumerate(results):
+    for attempt in attempts:
 
-        # Dense ranking logic
-        if row.final_score != last_score:
-            current_rank += 1
-            last_score = row.final_score
+        score = attempt.score.final_score
 
-        leaderboard.append({
-            "attempt_id": str(row.attempt_id),
-            "student_name": row.student_name,
-            "score": float(row.final_score),
-            "rank": current_rank,
-            "submitted_at": row.submitted_at
+        if score != prev_score:
+            dense_rank += 1
+        prev_score = score
+
+        answers = attempt.raw_payload.get("answers", {})
+        answer_key = attempt.test.answer_key or {}
+
+        correct = 0
+        wrong = 0
+        skipped = 0
+
+        for q, student_ans in answers.items():
+            correct_ans = answer_key.get(q)
+
+            if student_ans == "SKIP":
+                skipped += 1
+            elif student_ans == correct_ans:
+                correct += 1
+            else:
+                wrong += 1
+
+        total_questions = len(answer_key)
+        accuracy = (correct / total_questions * 100) if total_questions else 0
+
+        leaderboard_data.append({
+            "rank": dense_rank,
+            "student_name": attempt.student.full_name,
+            "score": score,
+            "correct": correct,
+            "wrong": wrong,
+            "skipped": skipped,
+            "accuracy": round(accuracy, 2)
         })
 
-    return jsonify(leaderboard), 200
+    return jsonify(leaderboard_data), 200
