@@ -224,7 +224,8 @@ const styles = {
     overflow: "auto",
     fontSize: "0.9rem",
     maxHeight: "400px",     
-    scrollbarWidth: "thin" 
+    scrollbarWidth: "thin"
+      
   },
   button: {
     padding: "10px 24px",
