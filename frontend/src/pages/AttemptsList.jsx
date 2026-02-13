@@ -194,7 +194,7 @@ function AttemptsList() {
 
           <input
             style={inputStyle}
-            placeholder="Search student name..."
+            placeholder="Search name, email or phone..."
             name="search"
             value={filters.search}
             onChange={handleChange}
@@ -301,7 +301,7 @@ function AttemptsList() {
           ← Previous
         </button>
 
-        <span>
+        <span style={{color: "black"}}>
           Page {page} of {totalPages}
         </span>
 

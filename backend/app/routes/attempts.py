@@ -62,6 +62,7 @@ def recompute_attempt(attempt_id):
     if attempt.status == "DEDUPED":
         return jsonify({"error": "Cannot recompute deduplicated attempt"}), 400
 
+   
     # Remove existing score
     existing_score = AttemptScore.query.filter_by(
         attempt_id=attempt.id
@@ -74,12 +75,8 @@ def recompute_attempt(attempt_id):
     # Recompute score
     new_score = score_attempt(attempt)
 
-    # If not manually flagged → set to SCORED
-    has_manual_flag = Flag.query.filter_by(
-        attempt_id=attempt.id
-    ).first()
-
-    if not has_manual_flag:
+    # Preserve manual flag status
+    if attempt.status != "FLAGGED":
         attempt.status = "SCORED"
 
     db.session.commit()
@@ -198,18 +195,37 @@ def get_attempt(attempt_id):
     if attempt.score:
         score = attempt.score.final_score
 
+    # 🔹 Duplicate thread
+    duplicates = Attempt.query.filter(
+        db.or_(
+            Attempt.id == attempt.duplicate_of_attempt_id,
+            Attempt.duplicate_of_attempt_id == attempt.id
+        )
+    ).all()
+
+    duplicate_thread = [
+        {
+            "id": str(a.id),
+            "status": a.status,
+            "submitted_at": a.submitted_at
+        }
+        for a in duplicates
+    ]
+
+    # 🔹 Flags
     flags = Flag.query.filter_by(
         attempt_id=attempt.id
     ).order_by(Flag.created_at.desc()).all()
 
-    flag_data = []
-    for f in flags:
-        flag_data.append({
+    flag_data = [
+        {
             "id": str(f.id),
             "reason": f.reason,
             "details": f.details,
             "created_at": f.created_at
-        })
+        }
+        for f in flags
+    ]
 
     return jsonify({
         "id": str(attempt.id),
@@ -218,7 +234,7 @@ def get_attempt(attempt_id):
         "status": attempt.status,
         "score": score,
         "duplicate_of_attempt_id": attempt.duplicate_of_attempt_id,
+        "duplicate_thread": duplicate_thread,   # NEW
         "raw_payload": attempt.raw_payload,
         "flags": flag_data
     }), 200
-
