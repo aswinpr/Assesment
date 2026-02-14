@@ -1,7 +1,11 @@
 
 
+<<<<<<< HEAD
 
 # 🏗 Architecture
+=======
+# Architecture
+>>>>>>> 09474cd7857564de61ff6a05905edee92301de52
 
 React Frontend → Flask REST API → Service Layer → PostgreSQL
 
@@ -43,6 +47,7 @@ python run.py
 # runs at:
 http://127.0.0.1:5000
 
+<<<<<<< HEAD
 
 # Ingest the Given JSON File
 
@@ -70,6 +75,11 @@ You can verify: GET http://127.0.0.1:5000/api/attempts
 ------------------------------------------------------------------------
 
 #  Frontend Setup
+=======
+------------------------------------------------------------------------
+
+# Frontend Setup
+>>>>>>> 09474cd7857564de61ff6a05905edee92301de52
 
 cd frontend\
 npm install\
@@ -77,7 +87,11 @@ npm start
 
 ------------------------------------------------------------------------
 
+<<<<<<< HEAD
 #  Important APIs
+=======
+# 📡 Important APIs
+>>>>>>> 09474cd7857564de61ff6a05905edee92301de52
 
 GET /api/attempts\
 GET /api/attempts/`<id>`{=html}\
